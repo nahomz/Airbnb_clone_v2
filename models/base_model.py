@@ -1,80 +1,59 @@
 #!/usr/bin/python3
 """
-Module base_model
-has class BaseModel that defines all
-common atributes/methods for other classes
+Contains class BaseModel
 """
-import models
-import sqlalchemy
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, Integer, DateTime
-import uuid
-from os import getenv
+
 from datetime import datetime
+import models
+from os import getenv
+import sqlalchemy
+from sqlalchemy import Column, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+import uuid
 
 time = "%Y-%m-%dT%H:%M:%S.%f"
 
-if getenv("HBNB_TYPE_STORAGE") == "db":
+if models.storage_t == "db":
     Base = declarative_base()
 else:
     Base = object
 
 
 class BaseModel:
-    """
-    public instance attributes:
-    id, created_at, updated_at
-    """
-
-    if getenv("HBNB_TYPE_STORAGE") == "db":
+    """The BaseModel class from which future classes will be derived"""
+    if models.storage_t == "db":
         id = Column(String(60), primary_key=True)
-        created_at = Column(DateTime, nullable=False,
-                            default=datetime.utcnow())
-        updated_at = Column(DateTime, nullable=False,
-                            default=datetime.utcnow())
+        created_at = Column(DateTime, default=datetime.utcnow)
+        updated_at = Column(DateTime, default=datetime.utcnow)
 
     def __init__(self, *args, **kwargs):
-        """
-        Initialization
-        id uses uuid.uuid4(). Regenerates a unique id for each BaseModel.
-        updated_at -> datetime will be updated everytime an object is changed.
-        *args and **kwargs are used as constructors
-        """
+        """Initialization of the base model"""
         if kwargs:
-            self.id = str(uuid.uuid4())
-            self.created_at = datetime.now()
-            for k, v in kwargs.items():
-                if k == "created_at" or k == "updated_at":
-                    v = datetime.strptime(v, time)
-                if k != "__class__":
-                    setattr(self, k, v)
+            for key, value in kwargs.items():
+                if key != "__class__":
+                    setattr(self, key, value)
+            if kwargs.get("created_at", None) and type(self.created_at) is str:
+                self.created_at = datetime.strptime(kwargs["created_at"], time)
+            else:
+                self.created_at = datetime.utcnow()
+            if kwargs.get("updated_at", None) and type(self.updated_at) is str:
+                self.updated_at = datetime.strptime(kwargs["updated_at"], time)
+            else:
+                self.updated_at = datetime.utcnow()
+            if kwargs.get("id", None) is None:
+                self.id = str(uuid.uuid4())
         else:
             self.id = str(uuid.uuid4())
-            self.created_at = datetime.now()
-            self.updated_at = datetime.now()
-            """ models.storage.new(self)"""
+            self.created_at = datetime.utcnow()
+            self.updated_at = self.created_at
 
     def __str__(self):
-        """
-        Returns string rep of class BaseModel
-        Prints: "[<class name>] (<self.id>) <self.__dict__>"
-        """
-        return ("[{}] ({}) {}".
-                format(self.__class__.__name__, self.id, self.__dict__))
-
-    def __repr__(self):
-        """
-        Returns the string representation of BaseModel
-        calls __str__()
-        """
-        return (self.__str__())
+        """String representation of the BaseModel class"""
+        return "[{:s}] ({:s}) {}".format(self.__class__.__name__, self.id,
+                                         self.__dict__)
 
     def save(self):
-        """
-        updates the public instance attribute updated_at
-        with the current datetime
-        Calls save(self) method of storage
-        """
+        """updates the attribute 'updated_at' with the current datetime"""
         self.updated_at = datetime.utcnow()
         models.storage.new(self)
         models.storage.save()
@@ -92,7 +71,5 @@ class BaseModel:
         return new_dict
 
     def delete(self):
-        """
-        deletes instance from storage
-        """
+        """delete the current instance from the storage"""
         models.storage.delete(self)
